@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Balloon Clicker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  text-align:center;
+  background:#cfefff;
+}
+.panel{
+  background:#fff;
+  margin:10px auto;
+  padding:10px;
+  width:90%;
+  max-width:420px;
+  border-radius:12px;
+}
+button{
+  width:100%;
+  margin-top:6px;
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  background:#ff9800;
+  color:#fff;
+  cursor:pointer;
+}
+#balloon{
+  width:180px;
+  height:220px;
+  margin:20px auto;
+  border-radius:50%;
+  background:red;
+  cursor:pointer;
+  animation:float 3s ease-in-out infinite;
+  transition:transform .1s;
+}
+#balloon.pop{transform:scale(1.15)}
+@keyframes float{
+  50%{transform:translateY(-15px)}
+}
+.building{
+  font-size:32px;
+  margin:4px;
+  display:inline-block;
+}
+.achievement{
+  background:#4caf50;
+  color:white;
+  padding:6px;
+  margin:4px;
+  border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎈 Balloon Clicker</h1>
+
+<div id="balloon"></div>
+
+<div class="panel">
+Pops: <b id="pops">0</b><br>
+PPS: <b id="pps">0</b>
+</div>
+
+<div class="panel">
+<h3>🏭 Buildings</h3>
+<button onclick="buy('pump')">Pump (10)</button>
+<button onclick="buy('factory')">Factory (100)</button>
+<button onclick="buy('robot')">Robot (1000)</button>
+<div id="buildings"></div>
+</div>
+
+<div class="panel">
+<h3>🏆 Achievements</h3>
+<div id="achievements"></div>
+</div>
+
+<div class="panel">
+<h3>🎟️ Codes</h3>
+<input id="codeInput" placeholder="enter code">
+<button onclick="redeemCode()">Redeem</button>
+<div id="codeMsg"></div>
+</div>
+
+<div class="panel">
+<button onclick="resetSave()">🔥 Reset Save</button>
+</div>
+
+<script>
+/* ========= SAVE ========= */
+function newSave(){
+  return{
+    pops:0,
+    infinite:false,
+    buildings:{pump:0,factory:0,robot:0},
+    achievements:{},
+    usedCodes:{}
+  };
+}
+
+let save;
+try{
+  save = JSON.parse(localStorage.getItem("balloon_save"));
+  if(!save || typeof save.pops !== "number") throw 0;
+}catch{
+  save = newSave();
+}
+
+/* ========= DATA ========= */
+const BUILDINGS = {
+  pump:{cost:10,pps:1,icon:"🔧"},
+  factory:{cost:100,pps:5,icon:"🏭"},
+  robot:{cost:1000,pps:20,icon:"🤖"}
+};
+
+const ACHIEVEMENTS = {
+  first:{name:"First Pop",req:1},
+  ten:{name:"10 Pops",req:10},
+  hundred:{name:"100 Pops",req:100},
+  thousand:{name:"1000 Pops",req:1000}
+};
+
+/* ========= ELEMENTS ========= */
+const balloon = document.getElementById("balloon");
+const popsEl = document.getElementById("pops");
+const ppsEl = document.getElementById("pps");
+const buildingsEl = document.getElementById("buildings");
+const achievementsEl = document.getElementById("achievements");
+const codeMsg = document.getElementById("codeMsg");
+
+/* ========= CLICK ========= */
+balloon.onclick = () => {
+  save.pops += save.infinite ? 1000 : 1;
+  balloon.classList.add("pop");
+  setTimeout(()=>balloon.classList.remove("pop"),100);
+};
+
+/* ========= BUILDINGS ========= */
+function buy(b){
+  const d = BUILDINGS[b];
+  if(save.pops >= d.cost){
+    save.pops -= d.cost;
+    save.buildings[b]++;
+  }
+}
+
+/* ========= ACHIEVEMENTS ========= */
+function checkAchievements(){
+  for(const k in ACHIEVEMENTS){
+    if(save.pops >= ACHIEVEMENTS[k].req && !save.achievements[k]){
+      save.achievements[k] = true;
+    }
+  }
+}
+
+function renderAchievements(){
+  achievementsEl.innerHTML = "";
+  for(const k in save.achievements){
+    const div = document.createElement("div");
+    div.className = "achievement";
+    div.textContent = ACHIEVEMENTS[k].name;
+    achievementsEl.appendChild(div);
+  }
+}
+
+/* ========= CODES ========= */
+function redeemCode(){
+  const c = codeInput.value.trim();
+  if(save.usedCodes[c]) return;
+
+  if(c === "debug886"){
+    save.infinite = true;
+    save.pops += 1000000;
+  }
+  else if(c === "afk-brb"){
+    save.pops += 100000;
+  }
+  else{
+    codeMsg.textContent = "Invalid code";
+    return;
+  }
+
+  save.usedCodes[c] = true;
+  codeMsg.textContent = "Code redeemed!";
+}
+
+/* ========= RESET ========= */
+function resetSave(){
+  localStorage.removeItem("balloon_save");
+  location.reload();
+}
+
+/* ========= LOOP ========= */
+let last = Date.now();
+function loop(){
+  const now = Date.now();
+  const dt = (now - last) / 1000;
+  last = now;
+
+  let pps = 0;
+  for(const b in BUILDINGS){
+    pps += save.buildings[b] * BUILDINGS[b].pps;
+  }
+  save.pops += pps * dt;
+
+  popsEl.textContent = Math.floor(save.pops);
+  ppsEl.textContent = pps.toFixed(1);
+
+  buildingsEl.innerHTML = "";
+  for(const b in BUILDINGS){
+    for(let i=0;i<save.buildings[b];i++){
+      const d = document.createElement("div");
+      d.className = "building";
+      d.textContent = BUILDINGS[b].icon;
+      buildingsEl.appendChild(d);
+    }
+  }
+
+  checkAchievements();
+  renderAchievements();
+
+  localStorage.setItem("balloon_save", JSON.stringify(save));
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
