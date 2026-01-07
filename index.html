@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Balloon Clicker (Wipe-Safe)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial;
+  background: #bde7ff;
+  text-align: center;
+  margin: 0;
+}
+
+#balloon {
+  width: 200px;
+  height: 240px;
+  background: red;
+  border-radius: 50%;
+  margin: 20px auto;
+  cursor: pointer;
+  animation: float 3s infinite;
+}
+@keyframes float {
+  50% { transform: translateY(-15px); }
+}
+#balloon:active { transform: scale(0.9); }
+
+.panel {
+  background: white;
+  margin: 10px auto;
+  padding: 10px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+}
+
+button {
+  padding: 8px;
+  width: 100%;
+  margin-top: 6px;
+  border-radius: 6px;
+  border: none;
+  background: #ff9800;
+  color: white;
+  cursor: pointer;
+}
+
+#buildings { font-size: 24px; }
+</style>
+</head>
+
+<body>
+
+<h1>🎈 Balloon Clicker</h1>
+
+<div id="balloon"></div>
+
+<div class="panel">
+  Pops: <span id="pops">0</span><br>
+  PPS: <span id="pps">0</span><br>
+  Clicks: <span id="clicks">0</span>
+</div>
+
+<div class="panel">
+  <h3>🏭 Buildings</h3>
+  <button onclick="buyPump()">Buy Pump (10 pops)</button>
+  <div id="buildings"></div>
+</div>
+
+<div class="panel">
+  <h3>🎨 Skins</h3>
+  <button onclick="setSkin('red')">Red</button>
+  <button onclick="setSkin('blue')">Blue (50)</button>
+</div>
+
+<div class="panel">
+  <h3>🏆 Achievements</h3>
+  <div id="achievements"></div>
+</div>
+
+<script>
+/* ===============================
+   WIPE-SAFE CORE
+================================ */
+
+/* Safe number */
+function safeNum(v, d = 0) {
+  v = Number(v);
+  return Number.isFinite(v) ? v : d;
+}
+
+/* Default save */
+function defaultSave() {
+  return {
+    version: 1,
+    pops: 0,
+    clicks: 0,
+    pumps: 0,
+    skin: "red",
+    achievements: {}
+  };
+}
+
+/* Load + repair save */
+function loadSave() {
+  let s;
+  try {
+    s = JSON.parse(localStorage.getItem("save"));
+  } catch {
+    s = null;
+  }
+
+  if (!s || typeof s !== "object") {
+    return defaultSave();
+  }
+
+  /* Repair fields */
+  let d = defaultSave();
+  s.pops = safeNum(s.pops, d.pops);
+  s.clicks = safeNum(s.clicks, d.clicks);
+  s.pumps = safeNum(s.pumps, d.pumps);
+  s.skin = typeof s.skin === "string" ? s.skin : d.skin;
+  s.achievements = typeof s.achievements === "object" ? s.achievements : {};
+
+  return s;
+}
+
+let save = loadSave();
+
+/* ===============================
+   GAME LOGIC
+================================ */
+
+const balloon = document.getElementById("balloon");
+
+/* Click balloon */
+balloon.onclick = () => {
+  save.pops = safeNum(save.pops) + 1;
+  save.clicks = safeNum(save.clicks) + 1;
+  checkAchievements();
+  update();
+};
+
+/* Buy building */
+function buyPump() {
+  if (save.pops >= 10) {
+    save.pops -= 10;
+    save.pumps++;
+    update();
+  }
+}
+
+/* Skins */
+function setSkin(color) {
+  if (color === "blue") {
+    if (save.pops < 50) return;
+    save.pops -= 50;
+  }
+  save.skin = color;
+  update();
+}
+
+/* Achievements */
+function checkAchievements() {
+  if (save.pops >= 1) save.achievements.first = true;
+  if (save.pops >= 10) save.achievements.ten = true;
+}
+
+/* Update loop */
+function update() {
+  let pps = safeNum(save.pumps) * 1;
+
+  save.pops = safeNum(save.pops) + pps * 0.1;
+
+  document.getElementById("pops").textContent = Math.floor(safeNum(save.pops));
+  document.getElementById("pps").textContent = pps;
+  document.getElementById("clicks").textContent = safeNum(save.clicks);
+
+  balloon.style.background = save.skin;
+  document.getElementById("buildings").textContent = "🔧".repeat(safeNum(save.pumps));
+
+  const ach = document.getElementById("achievements");
+  ach.innerHTML = "";
+  if (save.achievements.first) ach.innerHTML += "🏆 First Pop<br>";
+  if (save.achievements.ten) ach.innerHTML += "🏆 10 Pops<br>";
+
+  localStorage.setItem("save", JSON.stringify(save));
+}
+
+/* Passive income */
+setInterval(update, 1000);
+update();
+</script>
+
+</body>
+</html>
+<div class="panel">
+  <button onclick="resetGame()">🧨 Reset Save</button>
+</div>
